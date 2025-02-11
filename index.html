@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitTrack Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --full: #27ae60;
+            --partial: #7bed9f;
+            --skipped: #e74c3c;
+            --background: #f5f6fa;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--background);
+            color: var(--primary);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .month-navigation {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 3px;
+            margin-top: 10px;
+        }
+
+        .day-header {
+            text-align: center;
+            padding: 10px;
+            font-weight: bold;
+            background: #f8f9fa;
+            border-radius: 4px;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .current-month {
+            font-size: 1.2em;
+            font-weight: bold;
+            min-width: 160px;
+            text-align: center;
+        }
+
+        .streak-counter {
+            background: var(--secondary);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .day-cell {
+            aspect-ratio: 1;
+            background: #dfe6e9;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-size: 0.9em;
+            min-width: 0;
+        }
+
+        .day-cell:hover {
+            transform: scale(1.05);
+        }
+
+        .status-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+            animation: modalIn 0.3s;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: translate(-50%, -40%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+
+        .status-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            color: white;
+            min-width: 80px;
+        }
+
+        .empty-cell {
+            background: transparent;
+            cursor: default;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="calendar-header">
+            <div class="month-navigation">
+                <i class="fas fa-chevron-left" onclick="changeMonth(-1)"></i>
+                <span class="current-month" id="currentMonth"></span>
+                <i class="fas fa-chevron-right" onclick="changeMonth(1)"></i>
+            </div>
+            <div class="streak-counter" id="streakCounter">
+                🔥 0 Day Streak
+            </div>
+        </div>
+
+        <div class="calendar-grid" id="calendarGrid"></div>
+
+        <div class="stats">
+            <h3>Monthly Stats</h3>
+            <div id="monthStats"></div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--full)"></div>
+                <span>Full</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--partial)"></div>
+                <span>Partial</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: var(--skipped)"></div>
+                <span>Skipped</span>
+            </div>
+        </div>
+
+        <div class="status-modal" id="statusModal">
+            <h3>Select Status</h3>
+            <div class="modal-buttons">
+                <button class="status-btn" style="background: var(--skipped)" onclick="setStatus('skipped')">Skipped</button>
+                <button class="status-btn" style="background: var(--partial)" onclick="setStatus('partial')">Partial</button>
+                <button class="status-btn" style="background: var(--full)" onclick="setStatus('full')">Full</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDate = new Date();
+        let selectedDate = null;
+        let habits = JSON.parse(localStorage.getItem('habits')) || {};
+
+        function generateCalendar() {
+            const calendarGrid = document.getElementById('calendarGrid');
+            calendarGrid.innerHTML = '';
+
+            // Update month/year display
+            const monthYear = currentDate.toLocaleString('default', { 
+                month: 'long', 
+                year: 'numeric' 
+            });
+            document.getElementById('currentMonth').textContent = monthYear;
+
+            // Add day headers
+            ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'day-header';
+                header.textContent = day;
+                calendarGrid.appendChild(header);
+            });
+
+            const startDate = new Date(currentDate);
+            startDate.setDate(1);
+            const endDate = new Date(currentDate);
+            endDate.setMonth(endDate.getMonth() + 1);
+            endDate.setDate(0);
+
+            // Calculate first day position (Monday-based)
+            const firstDay = (startDate.getDay() + 6) % 7;
+
+            // Add empty cells for days before the first of the month
+            for (let i = 0; i < firstDay; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'day-cell empty-cell';
+                calendarGrid.appendChild(emptyCell);
+            }
+
+            // Add actual days
+            for (let d = 1; d <= endDate.getDate(); d++) {
+                const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
+                const dayCell = createDayElement(date);
+                calendarGrid.appendChild(dayCell);
+            }
+
+            updateStats();
+            calculateStreak();
+        }
+
+        function createDayElement(date) {
+            const day = document.createElement('div');
+            day.className = 'day-cell';
+            const dateString = date.toISOString().split('T')[0];
+            day.textContent = date.getDate();
+            day.dataset.date = dateString;
+
+            // Set initial color
+            if (habits[dateString]) {
+                day.style.backgroundColor = getStatusColor(habits[dateString]);
+            }
+
+            day.addEventListener('click', () => {
+                selectedDate = dateString;
+                document.getElementById('statusModal').style.display = 'block';
+            });
+
+            return day;
+        }
+
+        function getStatusColor(status) {
+            return {
+                'full': 'var(--full)',
+                'partial': 'var(--partial)',
+                'skipped': 'var(--skipped)'
+            }[status] || '#dfe6e9';
+        }
+
+        function setStatus(status) {
+            habits[selectedDate] = status;
+            localStorage.setItem('habits', JSON.stringify(habits));
+            
+            const dayCell = document.querySelector(`[data-date="${selectedDate}"]`);
+            dayCell.style.backgroundColor = getStatusColor(status);
+            
+            document.getElementById('statusModal').style.display = 'none';
+            updateStats();
+            calculateStreak();
+        }
+
+        function changeMonth(offset) {
+            currentDate.setMonth(currentDate.getMonth() + offset);
+            generateCalendar();
+        }
+
+        function calculateStreak() {
+            let streak = 0;
+            let currentDay = new Date();
+            
+            while (true) {
+                const dateStr = currentDay.toISOString().split('T')[0];
+                const status = habits[dateStr];
+                
+                if (!status || status === 'skipped') break;
+                if (status === 'full') streak += 1;
+                if (status === 'partial') streak += 0.5;
+                
+                currentDay.setDate(currentDay.getDate() - 1);
+            }
+
+            document.getElementById('streakCounter').textContent = `🔥 ${streak} Day Streak`;
+        }
+
+        function updateStats() {
+            const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            
+            let stats = { full: 0, partial: 0, skipped: 0 };
+            
+            for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+                const status = habits[d.toISOString().split('T')[0]];
+                if (status) stats[status]++;
+            }
+
+            document.getElementById('monthStats').innerHTML = `
+                <div>Full Days: ${stats.full}</div>
+                <div>Partial Days: ${stats.partial}</div>
+                <div>Skipped Days: ${stats.skipped}</div>
+            `;
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(e) {
+            if (e.target === document.getElementById('statusModal')) {
+                document.getElementById('statusModal').style.display = 'none';
+            }
+        }
+
+        // Initialize calendar
+        generateCalendar();
+    </script>
+</body>
+</html>
